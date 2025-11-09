@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Thimble Game — Md Laden</title>
+<style>
+body {font-family: 'Poppins', sans-serif; background: #0d1117; color: #fff; margin: 0; padding: 0; overflow-x: hidden;}
+header {display: flex; justify-content: space-between; align-items: center; background: #11172b; padding: 10px 18px; border-bottom: 1px solid #1f2937;}
+#time {color: #00ff99;}
+#username {color: #38bdf8; font-weight: bold;}
+.center {text-align: center; margin-top: 30px;}
+input {width: 70%; padding: 8px; margin-top: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #fff;}
+button {padding: 10px 20px; margin-top: 12px; border: none; border-radius: 8px; background: #0ea5e9; color: #012; font-weight: bold; cursor: pointer;}
+button:hover {background: #38bdf8;}
+.cup-row {display: flex; justify-content: center; gap: 30px; margin-top: 40px;}
+.cup {width: 100px; height: 120px; border-radius: 10px; background: linear-gradient(180deg,#222,#555); transition: transform 0.7s, background 0.3s;}
+.cup.up {transform: translateY(-80px); background: #ffd54d;}
+#status {margin-top: 12px; color: #94a3b8;}
+#error {color: #ff7b7b; margin-top: 8px;}
+small {color: #94a3b8;}
+</style>
+</head>
+<body>
+
+<header>
+  <div id="time">--:--:--</div>
+  <div id="username">Md Laden</div>
+</header>
+
+<div class="center">
+  <h2>🎯 Thimble Guess Game</h2>
+  <input id="hashInput" placeholder="Enter your HASH ID"><br>
+  <input id="saltInput" placeholder="Optional: Enter SALT"><br>
+  <button id="playBtn">PLAY</button>
+  <button id="resetBtn" style="display:none;background:#64748b;color:white;">RESET</button>
+  <div id="status"><small>Same HASH + Salt = same 2 cups. Try your luck!</small></div>
+  <div id="error"></div>
+
+  <div class="cup-row" id="cups">
+    <div class="cup" id="cupLeft"></div>
+    <div class="cup" id="cupMiddle"></div>
+    <div class="cup" id="cupRight"></div>
+  </div>
+</div>
+
+<script>
+// --- Clock ---
+function updateClock() {
+  const now = new Date();
+  const t = now.toLocaleTimeString('bn-BD', {hour12:false});
+  document.getElementById('time').textContent = t;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// --- SHA-256 Function ---
+async function sha256(msg) {
+  const buf = new TextEncoder().encode(msg);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  const hashArray = Array.from(new Uint8Array(hashBuf));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const cups = [
+  document.getElementById('cupLeft'),
+  document.getElementById('cupMiddle'),
+  document.getElementById('cupRight')
+];
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+const hashInput = document.getElementById('hashInput');
+const saltInput = document.getElementById('saltInput');
+const errorEl = document.getElementById('error');
+
+function showError(msg){ errorEl.textContent = msg; }
+function clearError(){ errorEl.textContent = ''; }
+
+playBtn.addEventListener('click', async ()=>{
+  clearError();
+  const hash = (hashInput.value||'').trim();
+  const salt = (saltInput.value||'').trim();
+  if(!hash){ showError("⚠️ Please enter a HASH ID first."); return; }
+
+  cups.forEach(c=>{ c.style.transform='rotateY(360deg)'; c.classList.remove('up'); });
+  playBtn.disabled=true; playBtn.style.opacity=0.6;
+
+  await new Promise(r=>setTimeout(r,800));
+
+  try{
+    const digest = await sha256(hash + salt);
+    const primary = parseInt(digest.slice(0,8),16) % 3;
+    let secondary = parseInt(digest.slice(8,16),16) % 3;
+    if (secondary === primary) secondary = (secondary + 1) % 3;
+
+    cups.forEach(c=>c.classList.remove('up'));
+    cups[primary].classList.add('up');
+    cups[secondary].classList.add('up');
+
+    resetBtn.style.display='inline-block';
+  }catch(e){
+    showError("Error: " + e.message);
+  }finally{
+    playBtn.disabled=false; playBtn.style.opacity=1;
+  }
+});
+
+resetBtn.addEventListener('click', ()=>{
+  cups.forEach(c=>c.classList.remove('up'));
+  resetBtn.style.display='none';
+  hashInput.value=''; saltInput.value='';
+  clearError();
+});
+</script>
+
+</body>
+</html>
